@@ -7,8 +7,6 @@
 #define LED_PIN 1
 #define LEDRING_PIN 3
 
-#define I2C_ADR 9
-#define LED_AMNT 16
 #define FRAME_RATE_HZ 30
 
 #define DEBUG_TIME 3000
@@ -73,7 +71,7 @@ void process_data(){
   // parse displacement
   displacement = received_data[4];
 
-  if((cmode == GEAR && cmode != prev) || cmode == CLEAR_WARNING || cmode == CLEAR_ON_SETUP_WARNING || cmode == CLEAR_PROGRESS_WARNING || cmode == RECONNECT){
+  if((cmode == GEAR && cmode != prev) || cmode == CLEAR_WARNING || cmode == CLEAR_ON_SETUP_WARNING || cmode == CLEAR_PROGRESS_WARNING || cmode == RECONNECT || cmode == COMPLETION){
     time = 0;
     gear_t = 0;
   }
@@ -93,17 +91,9 @@ void handleReceive(uint8_t amount) {
 
 void handleRequest() {
   // do actions
-  if(true){
-    uint8_t msg = 0;
-    msg |= !digitalRead(BUTTON_PIN);
-    msg |= 1 << (cmode +1);
-    TinyWireS.send(msg);
-  }
-  else {
-    for(uint8_t i=0; i<PACKET_SIZE;i++){
-      TinyWireS.send(received_data[i]);
-    }
-  }
+  uint8_t msg = 0;
+  msg |= !digitalRead(BUTTON_PIN);
+  TinyWireS.send(msg);
 }
 
 void renderMode() {
@@ -116,6 +106,11 @@ void renderMode() {
           break;
         case RECONNECT:
           renderReconnect();
+          break;
+        case PASSIVE:
+          for(uint8_t i =0; i < LED_AMNT; i++){
+            _ring.setPixelColor(i, _ring.Color(DEFAULT_BRIGHTNESS, DEFAULT_BRIGHTNESS, DEFAULT_BRIGHTNESS));
+          }
           break;
         case SETUP:
           renderSetup();
@@ -199,7 +194,7 @@ void renderProgress() {
 }
 
 void renderCompletion() {
-    _ring.fill(_ring.ColorHSV(135<<8,255,255));
+  _ring.fill(_ring.sine8(190 + time / COMPLETION_TIME_DIV) << 8);
 }
 
 void renderClearWarning() {
@@ -208,6 +203,7 @@ void renderClearWarning() {
     _ring.fill(_ring.ColorHSV(WARNING_HUE << 8,255,v));
 }
 void renderClearProgressWarning() {
-    float prog = 0.1 + 0.9 * float(time) / (LONG_PRESS_TIME- SHORT_PRESS_TIME);
-    _ring.fill(_ring.ColorHSV(WARNING_HUE << 8,255,constrain(prog*2,0,1) * 255), 0, prog * LED_AMNT);
+    uint8_t prog = map((time * 255) / (LONG_PRESS_TIME- SHORT_PRESS_TIME), 0, LED_AMNT);
+    // float prog = 0.1 + 0.9 * float(time) / (LONG_PRESS_TIME- SHORT_PRESS_TIME);
+    _ring.fill(_ring.ColorHSV(WARNING_HUE << 8,255,constrain(prog*2,0,1) * 255), 0, prog);
 }
